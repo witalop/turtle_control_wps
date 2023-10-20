@@ -13,8 +13,8 @@ class TurtleControl(Node):
         super().__init__('turtle_control_wps')
 
         #Constantes do robo
-        self.v_max = 0.2
-        self.kw = 3
+        self.v_max = 2
+        self.kw = 2
 
         #Parametros do nó
         self.sync_timer = 0.5
@@ -41,7 +41,7 @@ class TurtleControl(Node):
                                                           'goal', 
                                                           self.goal_callback,
                                                           self.queue_size)
-        print('Subscribers inicializados')
+        print('Subscribers inicializados\n')
 
     def init_variables(self):
         self.x_goal = None
@@ -80,7 +80,7 @@ class TurtleControl(Node):
             # print(f'ERROS x: {x_error}    y: {y_error}')
 
             p = (x_error**2 + y_error**2)**0.5
-            a = math.atan(y_error/x_error) - self.theta
+            a = math.atan2(y_error, x_error) - self.theta
             print(f'ERROS p: {p}    a: {a}')
 
             #Implementar o controle
@@ -88,7 +88,7 @@ class TurtleControl(Node):
             w = self.kw * a
             
             #Publicar msg
-            if not (abs(p)<=0.1 and abs(a)<=0.1):
+            if p>0.1 or a>0.1:
                 msg.linear.x = v
                 msg.angular.z = w
 
