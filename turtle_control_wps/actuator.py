@@ -4,15 +4,21 @@ from rclpy.node import Node
 import math
 
 from geometry_msgs.msg import Pose2D, Twist
-from turtlesim.msg import Pose
+from nav_msgs.msg import Odometry
 
-class TurtleControl(Node):
+from turtlesim.msg import Pose
+from tf_transformations import euler_from_quaternion
+from std_msgs.msg import Bool
+
+#TODO MONITORAR APENAS O ERRO, ACHO QUE QUANDO FICA MT PEQUENO ELE TA CRASHANDO. PODE DIMINUIR A FREQUENCIA DE MSG TBM
+
+class Actuator(Node):
     def __init__(self) -> None:
-        super().__init__('turtle_control_wps')
+        super().__init__('actuator')
 
         #Constantes do robo
-        self.v_max = 0.5
-        self.kw = 0.5
+        self.v_max = 0.2
+        self.kw = 1
 
         #Parametros do nó
         self.sync_timer = 0.5
@@ -24,21 +30,26 @@ class TurtleControl(Node):
         self.init_subscribers()
 
     def init_publisher(self):
-        self.publisher = self.create_publisher(Twist, 'turtle1/cmd_vel', self.queue_size)
+        self.publisher = self.create_publisher(Twist, 'cmd_vel', self.queue_size)
         self.timer_publisher = self.create_timer(self.sync_timer, self.pub_callback)
         print('Publisher inicializado')
 
     def init_subscribers(self):
-        self.subscription_pose = self.create_subscription(Pose, 
-                                                          'turtle1/pose', 
-                                                          self.pose_callback,
-                                                          self.queue_size)
+        self.pose_subscriber = self.create_subscription(Odometry,
+                                                        "odom", 
+                                                        self.pose_callback, 
+                                                        self.queue_size)
 
 
         self.subscription_goal = self.create_subscription(Pose2D, 
                                                           'goal', 
                                                           self.goal_callback,
                                                           self.queue_size)
+        
+        self.subscription_goal_reached = self.create_subscription(Bool, 
+                                                                   'goal_reached', 
+                                                                   self.goal_reached_callback,
+                                                                   self.queue_size)
         print('Subscribers inicializados\n')
 
     def init_variables(self):
@@ -52,23 +63,36 @@ class TurtleControl(Node):
         print('Variáveis inicializadas')
 
     def pose_callback(self, msg):
-        self.x = msg.x
-        self.y = msg.y
-        self.theta = msg.theta
+        # print(msg)
+        pose = msg.pose.pose
+
+        self.x =  pose.position.x
+        self.y =  pose.position.y
+        _, _, self.theta = euler_from_quaternion([pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w])
         # self.get_logger().info(f'POSE x:{msg.x}    y:{msg.y}')
 
     def goal_callback(self, msg):
         self.x_goal = msg.x
         self.y_goal = msg.y
         self.theta_goal = msg.theta
+        print(f'GOAL x:{self.x_goal}    y:{self.y_goal}    theta:{self.theta_goal}')
         # self.get_logger().info(f'GOAL x:{msg.x}    y:{msg.y}')
+
+    def goal_reached_callback(self, msg):
+        if msg.data:
+            print('GOAL REACHED')
+            #encerra o nó
+            self.destroy_node()
+            rclpy.shutdown()
 
 
     def pub_callback(self):
+        # print('entrou')
         msg = Twist()
 
         if any(item is None for item in [self.x, self.y, self.theta, 
                                          self.x_goal, self.y_goal, self.theta_goal]):
+            print(self.x, self.y, self.theta, self.x_goal, self.y_goal, self.theta_goal)
             self.publisher.publish(msg)
 
         else:
@@ -79,24 +103,17 @@ class TurtleControl(Node):
 
             p = (x_error**2 + y_error**2)**0.5
             a = math.atan2(y_error, x_error) - self.theta
-            print(f'ERROS distance: {p}    theta: {self.theta_goal-self.theta}')
+            print(f'ERROS p: {p}    a: {a}')
 
             #Implementar o controle
             v = self.v_max * math.tanh(p)
             w = self.kw * a
             
-            #Caso a distancia seja menor que 0.1, o robo gira no proprio eixo ate atingir o angulo desejado
             #Publicar msg
-            if abs(p)>0.1:
+            if abs(p)>0.1 or abs(a)>0.1:
                 msg.linear.x = v
                 msg.angular.z = w
-            else:
-                if abs(self.theta-self.theta_goal)>0.1:
-                    msg.linear.x = 0.0
-                    msg.angular.z = 1.0 
-                else:
-                    msg.linear.x = 0.0
-                    msg.angular.z = 0.0
+            # print(msg)
 
             self.publisher.publish(msg)
 
@@ -105,7 +122,7 @@ class TurtleControl(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    node = TurtleControl()
+    node = Actuator()
 
     rclpy.spin(node)
 

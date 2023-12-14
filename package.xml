@@ -4,13 +4,8 @@
   <name>turtle_control_wps</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="witalopietler@gmail.com">root</maintainer>
-  <license>Apache License 2.0</license>
-
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>turtlesim</exec_depend>
-  <exec_depend>math</exec_depend>
+  <maintainer email="witalopietler@gmail.com">witalo</maintainer>
+  <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
